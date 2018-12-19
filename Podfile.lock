@@ -1,0 +1,20 @@
+PODS:
+  - AWSCore (2.6.33)
+  - AWSRekognition (2.6.33):
+    - AWSCore (= 2.6.33)
+
+DEPENDENCIES:
+  - AWSRekognition
+
+SPEC REPOS:
+  https://github.com/cocoapods/specs.git:
+    - AWSCore
+    - AWSRekognition
+
+SPEC CHECKSUMS:
+  AWSCore: ed83f7e36fb6c0211b04a439d8e564aa23bfe37d
+  AWSRekognition: dfb045645f53f0f49536c681d90b9cc59fc84045
+
+PODFILE CHECKSUM: 29c30d238c6f7f0cd194bb7cefe809a58e4ab092
+
+COCOAPODS: 1.6.0.beta.2
