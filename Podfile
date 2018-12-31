@@ -7,6 +7,7 @@ target 'CelebMatch' do
 
   # Pods for CelebMatch
   pod 'AWSRekognition'
+  pod 'CameraManager', '~> 4.3'
 
 
   target 'CelebMatchTests' do

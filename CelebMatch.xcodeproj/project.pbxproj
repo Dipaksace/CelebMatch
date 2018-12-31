@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A3A9938004AAEAE4F143EB9B /* Pods_CelebMatch.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AD433F7FFF5C4FC36834DF2A /* Pods_CelebMatch.framework */; };
+		B538B6C721D4FC4E001357EE /* Celebrity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B538B6C621D4FC4E001357EE /* Celebrity.swift */; };
 		B5466DC521CA4B3E0029C6F4 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5466DC421CA4B3E0029C6F4 /* AppDelegate.swift */; };
 		B5466DC721CA4B3E0029C6F4 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5466DC621CA4B3E0029C6F4 /* ViewController.swift */; };
 		B5466DCA21CA4B3E0029C6F4 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B5466DC821CA4B3E0029C6F4 /* Main.storyboard */; };
@@ -41,6 +42,7 @@
 		45606E13FD48DA828D5A7BB3 /* Pods-CelebMatchUITests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CelebMatchUITests.release.xcconfig"; path = "Target Support Files/Pods-CelebMatchUITests/Pods-CelebMatchUITests.release.xcconfig"; sourceTree = "<group>"; };
 		583715817E95A13E4C4AE4C3 /* Pods-CelebMatchTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CelebMatchTests.release.xcconfig"; path = "Target Support Files/Pods-CelebMatchTests/Pods-CelebMatchTests.release.xcconfig"; sourceTree = "<group>"; };
 		AD433F7FFF5C4FC36834DF2A /* Pods_CelebMatch.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CelebMatch.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		B538B6C621D4FC4E001357EE /* Celebrity.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Celebrity.swift; sourceTree = "<group>"; };
 		B5466DC121CA4B3E0029C6F4 /* CelebMatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CelebMatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5466DC421CA4B3E0029C6F4 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		B5466DC621CA4B3E0029C6F4 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -124,6 +126,7 @@
 		B5466DC321CA4B3E0029C6F4 /* CelebMatch */ = {
 			isa = PBXGroup;
 			children = (
+				B538B6C621D4FC4E001357EE /* Celebrity.swift */,
 				B5466DC421CA4B3E0029C6F4 /* AppDelegate.swift */,
 				B5466DC621CA4B3E0029C6F4 /* ViewController.swift */,
 				B5466DC821CA4B3E0029C6F4 /* Main.storyboard */,
@@ -308,11 +311,13 @@
 				"${PODS_ROOT}/Target Support Files/Pods-CelebMatch/Pods-CelebMatch-frameworks.sh",
 				"${BUILT_PRODUCTS_DIR}/AWSCore/AWSCore.framework",
 				"${BUILT_PRODUCTS_DIR}/AWSRekognition/AWSRekognition.framework",
+				"${BUILT_PRODUCTS_DIR}/CameraManager/CameraManager.framework",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AWSCore.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AWSRekognition.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CameraManager.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -381,6 +386,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B5466DC721CA4B3E0029C6F4 /* ViewController.swift in Sources */,
+				B538B6C721D4FC4E001357EE /* Celebrity.swift in Sources */,
 				B5466DC521CA4B3E0029C6F4 /* AppDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -558,6 +564,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = X7LK34X8N8;
 				INFOPLIST_FILE = CelebMatch/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.trailX.CelebMatch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -576,6 +583,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = X7LK34X8N8;
 				INFOPLIST_FILE = CelebMatch/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.trailX.CelebMatch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
