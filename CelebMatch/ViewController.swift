@@ -15,7 +15,6 @@ import AWSRekognition
 
 class ViewController: UIViewController {
 
-    @IBOutlet weak var celebFaceView:UIImageView!
     @IBOutlet weak var userFaceView:UIImageView!
     var rekognitionObject:AWSRekognition?
     var infoLinksMap: [Int:String] = [1000:""]
@@ -117,7 +116,7 @@ class ViewController: UIViewController {
         //Delete older labels or buttons
         DispatchQueue.main.async {
             [weak self] in
-            for subView in (self?.celebFaceView.subviews)! {
+            for subView in (self?.userFaceView.subviews)! {
                 subView.removeFromSuperview()
             }
         }
@@ -130,7 +129,8 @@ class ViewController: UIViewController {
         
         rekognitionObject?.recognizeCelebrities(celebRequest!){
             (result, error) in
-            if error != nil{                print(error!)
+            if error != nil{
+                print(error!)
                 return
             }
             
@@ -150,7 +150,7 @@ class ViewController: UIViewController {
                             //Create an instance of Celebrity. This class is availabe with the starter application you downloaded
                             let celebrityInImage = Celebrity()
                             
-                            celebrityInImage.scene = (self?.celebFaceView)!
+                            celebrityInImage.scene = (self?.userFaceView)!
                             
                             //Get the coordinates for where this celebrity face is in the image and pass them to the Celebrity instance
                             celebrityInImage.boundingBox = ["height":celebFace.face?.boundingBox?.height, "left":celebFace.face?.boundingBox?.left, "top":celebFace.face?.boundingBox?.top, "width":celebFace.face?.boundingBox?.width] as! [String : CGFloat]
@@ -172,7 +172,7 @@ class ViewController: UIViewController {
                             let infoButton:UIButton = celebrityInImage.createInfoButton()
                             infoButton.tag = index
                             infoButton.addTarget(self, action: #selector(self?.handleTap), for: UIControlEvents.touchUpInside)
-                            self?.celebFaceView.addSubview(infoButton)
+                            self?.userFaceView.addSubview(infoButton)
                         }
                     }
                     
@@ -182,6 +182,9 @@ class ViewController: UIViewController {
             else if ((result!.unrecognizedFaces?.count)! > 0){
                 //Faces are present. Point them out in the Image (left as an exercise for the reader)
                 /**/
+                self.showAlert(title: "No Celeb Found", message: "There is no matching found for the respective image", onB1Click: {
+                    
+                })
             }
             else{
                 //No faces were found (presumably no people were found either)
@@ -272,6 +275,7 @@ extension ViewController: UIImagePickerControllerDelegate,UINavigationController
         
         let cmeraImg = info[UIImagePickerControllerEditedImage] as? UIImage
         self.userFaceView.image = cmeraImg
+        
         let celebImage:Data = UIImageJPEGRepresentation(cmeraImg!, 0.2)!
         
         //Demo Line

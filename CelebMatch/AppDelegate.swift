@@ -19,10 +19,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Override point for customization after application launch.
         // Initialize Identity Provider
         let credentialsProvider = AWSCognitoCredentialsProvider(
-            regionType: .APSouth1,
+            regionType: .USEast1,
             identityPoolId: "us-east-1:522f6c9a-c74e-452a-89ea-5a01d481487a")
         let configuration = AWSServiceConfiguration(
-            region: .APSouth1,
+            region: .USEast1,
             credentialsProvider: credentialsProvider)
         AWSServiceManager.default().defaultServiceConfiguration = configuration
         return true
