@@ -20,7 +20,14 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
     @IBOutlet weak var previewView: UIView?
     var infoLinksMap: [Int:String] = [1000:""]
     var rekognitionObject:AWSRekognition?
-
+    var matchedFaceNameLbl: UILabel = {
+        let label = UILabel()
+        label.textColor = .white
+//        label.text = "Label"
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.font = label.font.withSize(30)
+        return label
+    }()
     // AVCapture variables to hold sequence data
     var session: AVCaptureSession?
     var previewLayer: AVCaptureVideoPreviewLayer?
@@ -50,7 +57,7 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         super.viewDidLoad()
         
         self.session = self.setupAVCaptureSession()
-        
+        self.previewView?.addSubview(matchedFaceNameLbl)
         self.prepareVisionRequest()
         
         self.session?.startRunning()
@@ -118,7 +125,7 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
     }
     
     fileprivate func configureFrontCamera(for captureSession: AVCaptureSession) throws -> (device: AVCaptureDevice, resolution: CGSize) {
-        let deviceDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: .video, position: .front)
+        let deviceDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: .video, position: .back)
         
         if let device = deviceDiscoverySession.devices.first {
             if let deviceInput = try? AVCaptureDeviceInput(device: device) {
@@ -259,6 +266,7 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
                 
                 for observation in results {
                     let faceTrackingRequest = VNTrackObjectRequest(detectedObjectObservation: observation)
+                    faceTrackingRequest.trackingLevel = .accurate
                     requests.append(faceTrackingRequest)
                 }
                 
@@ -327,7 +335,7 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         overlayLayer.addSublayer(faceRectangleShapeLayer)
         faceRectangleShapeLayer.addSublayer(faceLandmarksShapeLayer)
         rootLayer.addSublayer(overlayLayer)
-        
+
         self.detectionOverlayLayer = overlayLayer
         self.detectedFaceRectangleShapeLayer = faceRectangleShapeLayer
         self.detectedFaceLandmarksShapeLayer = faceLandmarksShapeLayer
@@ -402,8 +410,10 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         
         let faceBounds = VNImageRectForNormalizedRect(faceObservation.boundingBox, Int(displaySize.width), Int(displaySize.height))
         faceRectanglePath.addRect(faceBounds)
-        
+//        self.matchedFaceNameLbl.frame = CGRect.init(origin: faceBounds.origin, size: CGSize.init(width: 100, height: 20))
+
         if let landmarks = faceObservation.landmarks {
+            
             // Landmarks are relative to -- and normalized within --- face bounds
             let affineTransform = CGAffineTransform(translationX: faceBounds.origin.x, y: faceBounds.origin.y)
                 .scaledBy(x: faceBounds.size.width, y: faceBounds.size.height)
@@ -417,7 +427,7 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
                 landmarks.medianLine
             ]
             for openLandmarkRegion in openLandmarkRegions where openLandmarkRegion != nil {
-                self.addPoints(in: openLandmarkRegion!, to: faceLandmarksPath, applying: affineTransform, closingWhenComplete: false)
+//                self.addPoints(in: openLandmarkRegion!, to: faceLandmarksPath, applying: affineTransform, closingWhenComplete: false)
             }
             
             // Draw eyes, lips, and nose as closed regions.
@@ -429,7 +439,7 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
                 landmarks.nose
             ]
             for closedLandmarkRegion in closedLandmarkRegions where closedLandmarkRegion != nil {
-                self.addPoints(in: closedLandmarkRegion!, to: faceLandmarksPath, applying: affineTransform, closingWhenComplete: true)
+//                self.addPoints(in: closedLandmarkRegion!, to: faceLandmarksPath, applying: affineTransform, closingWhenComplete: true)
             }
         }
     }
@@ -454,7 +464,7 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
                                faceLandmarksPath: faceLandmarksPath,
                                for: faceObservation)
         }
-        
+
         faceRectangleShapeLayer.path = faceRectanglePath
         faceLandmarksShapeLayer.path = faceLandmarksPath
         
@@ -471,11 +481,11 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         var requestHandlerOptions: [VNImageOption: AnyObject] = [:]
         
         let cameraIntrinsicData = CMGetAttachment(sampleBuffer, kCMSampleBufferAttachmentKey_CameraIntrinsicMatrix, nil)
-        
+
         if cameraIntrinsicData != nil {
             requestHandlerOptions[VNImageOption.cameraIntrinsics] = cameraIntrinsicData
         }
-        
+    
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
             print("Failed to obtain a CVPixelBuffer for the current output frame.")
             return
@@ -519,8 +529,26 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
             guard let observation = results[0] as? VNDetectedObjectObservation else {
                 return
             }
-            
+            DispatchQueue.main.async {
+                var transformedRect = observation.boundingBox
+                transformedRect.origin.y = 1 - transformedRect.origin.y
+                let convertedRect = self.previewLayer?.layerRectConverted(fromMetadataOutputRect: transformedRect)
+                self.matchedFaceNameLbl.frame = CGRect.init(origin: (convertedRect?.origin)!, size: CGSize.init(width: 200, height: 30))
+                
+            }
+
             if !trackingRequest.isLastFrame {
+                
+                if i < 1 && observation.confidence == 1.0{
+                    
+                    if let imgData = self.imageFromSampleBuffer(sampleBuffer: sampleBuffer) ,
+                        let rotatedImg = imgData.rotate(radians: .pi/2),
+                        let data1 = UIImageJPEGRepresentation(rotatedImg, 0.2) {
+                        i = i+1
+                        self.sendImageToRekognition(celebImageData: data1)
+                        
+                    }
+                }
                 if observation.confidence > 0.3 {
                     trackingRequest.inputObservation = observation
                 } else {
@@ -582,14 +610,7 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
                 NSLog("Failed to perform FaceLandmarkRequest: %@", error)
             }
         }
-        if i < 1 {
-            if let imgData = self.imageFromSampleBuffer(sampleBuffer: sampleBuffer) ,
-                let data1 = UIImageJPEGRepresentation(imgData, 1.0) {
-                i = i+1
-                self.sendImageToRekognition(celebImageData: data1)
-
-            }
-        }
+        
         
     }
     func imageFromSampleBuffer(sampleBuffer : CMSampleBuffer) -> UIImage?
@@ -622,13 +643,37 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         // Unlock the pixel buffer
         CVPixelBufferUnlockBaseAddress(imageBuffer!, CVPixelBufferLockFlags.readOnly);
         if let img = quartzImage {
-            return UIImage.init(cgImage: img, scale: 1.0, orientation: .up)
+            let imgToReturn =  UIImage.init(cgImage: img)
+            return imgToReturn
+            
         }else {
             return nil
         }
         // Create an image object from the Quartz image
         
 //        return (image);
+    }
+}
+extension UIImage {
+    func rotate(radians: CGFloat) -> UIImage? {
+        let rotatedSize = CGRect(origin: .zero, size: size)
+            .applying(CGAffineTransform(rotationAngle: CGFloat(radians)))
+            .integral.size
+        UIGraphicsBeginImageContext(rotatedSize)
+        if let context = UIGraphicsGetCurrentContext() {
+            let origin = CGPoint(x: rotatedSize.width / 2.0,
+                                 y: rotatedSize.height / 2.0)
+            context.translateBy(x: origin.x, y: origin.y)
+            context.rotate(by: radians)
+            draw(in: CGRect(x: -origin.x, y: -origin.y,
+                            width: size.width, height: size.height))
+            let rotatedImage = UIGraphicsGetImageFromCurrentImageContext()
+            UIGraphicsEndImageContext()
+            
+            return rotatedImage
+        }
+        
+        return self
     }
 }
 extension ViewController {
@@ -660,33 +705,33 @@ extension ViewController {
                         //We are confident this is celebrity. Lets point them out in the image using the main thread
                         DispatchQueue.main.async {
                             [weak self] in
-                            
-                            //Create an instance of Celebrity. This class is availabe with the starter application you downloaded
-                            let celebrityInImage = Celebrity()
-                            
-//                            celebrityInImage.scene = (self?.previewView)!
-                            
-                            //Get the coordinates for where this celebrity face is in the image and pass them to the Celebrity instance
-                            celebrityInImage.boundingBox = ["height":celebFace.face?.boundingBox?.height, "left":celebFace.face?.boundingBox?.left, "top":celebFace.face?.boundingBox?.top, "width":celebFace.face?.boundingBox?.width] as! [String : CGFloat]
-                            
-                            //Get the celebrity name and pass it along
-                            celebrityInImage.name = celebFace.name!
-                            //Get the first url returned by the API for this celebrity. This is going to be an IMDb profile link
-                            if (celebFace.urls!.count > 0){
-                                celebrityInImage.infoLink = celebFace.urls![0]
-                            }
-                                //If there are no links direct them to IMDB search page
-                            else{
-                                celebrityInImage.infoLink = "https://www.imdb.com/search/name-text?bio="+celebrityInImage.name
-                            }
-                            //Update the celebrity links map that we will use next to create buttons
-                            self?.infoLinksMap[index] = "https://"+celebFace.urls![0]
-                            
-                            //Create a button that will take users to the IMDb link when tapped
-                            let infoButton:UIButton = celebrityInImage.createInfoButton()
-                            infoButton.tag = index
-                            infoButton.addTarget(self, action: #selector(self?.handleTap), for: UIControlEvents.touchUpInside)
-                            self?.previewView?.addSubview(infoButton)
+                            self?.matchedFaceNameLbl.text = celebFace.name
+//                            //Create an instance of Celebrity. This class is availabe with the starter application you downloaded
+//                            let celebrityInImage = Celebrity()
+//
+////                            celebrityInImage.scene = (self?.previewView)!
+//
+//                            //Get the coordinates for where this celebrity face is in the image and pass them to the Celebrity instance
+//                            celebrityInImage.boundingBox = ["height":celebFace.face?.boundingBox?.height, "left":celebFace.face?.boundingBox?.left, "top":celebFace.face?.boundingBox?.top, "width":celebFace.face?.boundingBox?.width] as! [String : CGFloat]
+//
+//                            //Get the celebrity name and pass it along
+//                            celebrityInImage.name = celebFace.name!
+//                            //Get the first url returned by the API for this celebrity. This is going to be an IMDb profile link
+//                            if (celebFace.urls!.count > 0){
+//                                celebrityInImage.infoLink = celebFace.urls![0]
+//                            }
+//                                //If there are no links direct them to IMDB search page
+//                            else{
+//                                celebrityInImage.infoLink = "https://www.imdb.com/search/name-text?bio="+celebrityInImage.name
+//                            }
+//                            //Update the celebrity links map that we will use next to create buttons
+//                            self?.infoLinksMap[index] = "https://"+celebFace.urls![0]
+//
+//                            //Create a button that will take users to the IMDb link when tapped
+//                            let infoButton:UIButton = celebrityInImage.createInfoButton()
+//                            infoButton.tag = index
+//                            infoButton.addTarget(self, action: #selector(self?.handleTap), for: UIControlEvents.touchUpInside)
+//                            self?.previewView?.addSubview(infoButton)
                         }
                     }
                     
@@ -696,6 +741,8 @@ extension ViewController {
             else if ((result!.unrecognizedFaces?.count)! > 0){
                 //Faces are present. Point them out in the Image (left as an exercise for the reader)
                 /**/
+                print("Unrecognized faces in this pic")
+
             }
             else{
                 self.i = self.i - 1
@@ -706,6 +753,7 @@ extension ViewController {
         }
         
     }
+ 
     @objc func handleTap(sender:UIButton){
         print("tap recognized")
         let celebURL = URL(string: self.infoLinksMap[sender.tag]!)
