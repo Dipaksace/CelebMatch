@@ -7,8 +7,7 @@ target 'CelebMatch' do
 
   # Pods for CelebMatch
   pod 'AWSRekognition'
-  pod 'CameraManager', '~> 4.3'
-
+  pod 'MBProgressHUD', '~> 1.1.0'
 
   target 'CelebMatchTests' do
     inherit! :search_paths

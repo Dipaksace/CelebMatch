@@ -17,6 +17,7 @@
 		B5466DCF21CA4B410029C6F4 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B5466DCD21CA4B410029C6F4 /* LaunchScreen.storyboard */; };
 		B5466DDA21CA4B410029C6F4 /* CelebMatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5466DD921CA4B410029C6F4 /* CelebMatchTests.swift */; };
 		B5466DE521CA4B410029C6F4 /* CelebMatchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5466DE421CA4B410029C6F4 /* CelebMatchUITests.swift */; };
+		B55A8A2721EDD0AD000FBD5B /* RecognizedFaceCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55A8A2621EDD0AD000FBD5B /* RecognizedFaceCell.swift */; };
 		C9CA2BA7B4B0C1A844746721 /* Pods_CelebMatchTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDD9F8C863D1AC2A8AE1E35D /* Pods_CelebMatchTests.framework */; };
 		D7C579A2EC88088CE0031BF7 /* Pods_CelebMatchUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E0ABB900904B9B2DB3C728EF /* Pods_CelebMatchUITests.framework */; };
 /* End PBXBuildFile section */
@@ -58,6 +59,7 @@
 		B5466DE021CA4B410029C6F4 /* CelebMatchUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CelebMatchUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5466DE421CA4B410029C6F4 /* CelebMatchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CelebMatchUITests.swift; sourceTree = "<group>"; };
 		B5466DE621CA4B410029C6F4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B55A8A2621EDD0AD000FBD5B /* RecognizedFaceCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecognizedFaceCell.swift; sourceTree = "<group>"; };
 		C71973048257D91B4057B75D /* Pods-CelebMatchUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CelebMatchUITests.debug.xcconfig"; path = "Target Support Files/Pods-CelebMatchUITests/Pods-CelebMatchUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		D7EAECAD07A8DAF7818564BA /* Pods-CelebMatch.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CelebMatch.debug.xcconfig"; path = "Target Support Files/Pods-CelebMatch/Pods-CelebMatch.debug.xcconfig"; sourceTree = "<group>"; };
 		E0ABB900904B9B2DB3C728EF /* Pods_CelebMatchUITests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_CelebMatchUITests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -132,6 +134,7 @@
 				B538B6C621D4FC4E001357EE /* Celebrity.swift */,
 				B5466DC421CA4B3E0029C6F4 /* AppDelegate.swift */,
 				B5466DC621CA4B3E0029C6F4 /* ViewController.swift */,
+				B55A8A2621EDD0AD000FBD5B /* RecognizedFaceCell.swift */,
 				B5466DC821CA4B3E0029C6F4 /* Main.storyboard */,
 				B5466DCB21CA4B410029C6F4 /* Assets.xcassets */,
 				B5466DCD21CA4B410029C6F4 /* LaunchScreen.storyboard */,
@@ -315,13 +318,13 @@
 				"${PODS_ROOT}/Target Support Files/Pods-CelebMatch/Pods-CelebMatch-frameworks.sh",
 				"${BUILT_PRODUCTS_DIR}/AWSCore/AWSCore.framework",
 				"${BUILT_PRODUCTS_DIR}/AWSRekognition/AWSRekognition.framework",
-				"${BUILT_PRODUCTS_DIR}/CameraManager/CameraManager.framework",
+				"${BUILT_PRODUCTS_DIR}/MBProgressHUD/MBProgressHUD.framework",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AWSCore.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/AWSRekognition.framework",
-				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/CameraManager.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/MBProgressHUD.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -389,6 +392,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B55A8A2721EDD0AD000FBD5B /* RecognizedFaceCell.swift in Sources */,
 				B5466DC721CA4B3E0029C6F4 /* ViewController.swift in Sources */,
 				B538B6C721D4FC4E001357EE /* Celebrity.swift in Sources */,
 				B5466DC521CA4B3E0029C6F4 /* AppDelegate.swift in Sources */,
