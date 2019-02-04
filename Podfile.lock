@@ -2,23 +2,25 @@ PODS:
   - AWSCore (2.6.33)
   - AWSRekognition (2.6.33):
     - AWSCore (= 2.6.33)
-  - MBProgressHUD (1.1.0)
+  - NVActivityIndicatorView (4.4.0):
+    - NVActivityIndicatorView/Presenter (= 4.4.0)
+  - NVActivityIndicatorView/Presenter (4.4.0)
 
 DEPENDENCIES:
   - AWSRekognition
-  - MBProgressHUD (~> 1.1.0)
+  - NVActivityIndicatorView
 
 SPEC REPOS:
   https://github.com/cocoapods/specs.git:
     - AWSCore
     - AWSRekognition
-    - MBProgressHUD
+    - NVActivityIndicatorView
 
 SPEC CHECKSUMS:
   AWSCore: ed83f7e36fb6c0211b04a439d8e564aa23bfe37d
   AWSRekognition: dfb045645f53f0f49536c681d90b9cc59fc84045
-  MBProgressHUD: e7baa36a220447d8aeb12769bf0585582f3866d9
+  NVActivityIndicatorView: ec7440a57af2450319d3a4181cca7da6fc127064
 
-PODFILE CHECKSUM: 9d04f93ecf34d5a99c79da4e7d9b38f0417dc7ac
+PODFILE CHECKSUM: 88f92e55523654397c0f4c09990982ac128b109f
 
 COCOAPODS: 1.6.0.beta.2

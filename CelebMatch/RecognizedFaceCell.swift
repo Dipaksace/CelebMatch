@@ -14,6 +14,7 @@ class RecognizedFaceCell: UITableViewCell {
     @IBOutlet weak var lblRecognizedDesc:UILabel!
     @IBOutlet weak var btnKnowMore:UIButton!
     @IBOutlet weak var progressBar:UIProgressView!
+    @IBOutlet weak var faceImgView:UIImageView!
     var faceData:AWSRekognitionCelebrity!
     
     override func awakeFromNib() {

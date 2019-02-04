@@ -7,7 +7,7 @@ target 'CelebMatch' do
 
   # Pods for CelebMatch
   pod 'AWSRekognition'
-  pod 'MBProgressHUD', '~> 1.1.0'
+  pod 'NVActivityIndicatorView' 
 
   target 'CelebMatchTests' do
     inherit! :search_paths
