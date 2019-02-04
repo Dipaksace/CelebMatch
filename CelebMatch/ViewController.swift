@@ -61,7 +61,7 @@ class ViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-            
+        
         self.session = self.setupAVCaptureSession()
         
         self.tblRecognizedFace.tableFooterView = UIView.init(frame: CGRect.zero)
@@ -428,7 +428,7 @@ extension ViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
             featureLayer.frame = faceFrame
             featureLayer.borderColor = UIColor.init(red: 50/255, green: 152/255, blue: 218/255, alpha: 1.0).cgColor
             featureLayer.borderWidth = 3.0
-            featureLayer.cornerRadius = faceObject.bounds.width/12
+            featureLayer.cornerRadius = 10
             featureLayer.masksToBounds = true
             featureLayer.name = "face"
             layer.addSublayer(featureLayer)
@@ -453,9 +453,19 @@ extension ViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
         faceRect.origin.y *= heightScaleBy
         
         faceRect = faceRect.offsetBy(dx: 0.0, dy: previewBox.origin.y)
-        let frame = CGRect(x: parentFrameSize.width - faceRect.origin.x - faceRect.size.width / 2.0 - previewBox.origin.x / 2.0, y: faceRect.origin.y, width: faceRect.width, height: faceRect.height)
         
-        return frame
+        if let input = session?.inputs.first as? AVCaptureDeviceInput {
+            if (input.device.position == .back) {
+                let frame = CGRect(x: parentFrameSize.width - faceRect.origin.x, y: faceRect.origin.y, width: faceRect.width, height: faceRect.height)
+                return frame
+
+            } else {
+                let frame = CGRect(x: parentFrameSize.width - faceRect.origin.x - faceRect.size.width / 2.0 - previewBox.origin.x, y: faceRect.origin.y, width: faceRect.width, height: faceRect.height)
+                return frame
+            }
+        }
+        return CGRect.zero
+ 
     }
 }
 extension UIImage {
