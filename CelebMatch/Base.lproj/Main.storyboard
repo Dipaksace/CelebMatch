@@ -4,7 +4,6 @@
         <adaptation id="fullscreen"/>
     </device>
     <dependencies>
-        <deployment identifier="iOS"/>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="14460.20"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -18,7 +17,7 @@
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
-                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="roD-D4-87v">
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="roD-D4-87v" customClass="PreviewView" customModule="CelebMatch" customModuleProvider="target">
                                 <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                                 <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                             </view>
@@ -27,7 +26,7 @@
                                 <color key="backgroundColor" red="0.68289260370000004" green="0.84037160440000003" blue="0.95990923709999998" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
                             </view>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="5qj-VD-uwV">
-                                <rect key="frame" x="313" y="32" width="50" height="50"/>
+                                <rect key="frame" x="313" y="50" width="50" height="50"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="50" id="QRU-C7-RY7"/>
                                     <constraint firstAttribute="height" constant="50" id="SN2-wG-Wg6"/>
@@ -152,14 +151,14 @@
                             <constraint firstAttribute="bottom" secondItem="Am7-3G-b19" secondAttribute="bottom" id="9Fv-Bz-Oux"/>
                             <constraint firstItem="roD-D4-87v" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" id="DiV-fg-BsK"/>
                             <constraint firstItem="LqP-vN-hAd" firstAttribute="trailing" secondItem="6Tk-OE-BBY" secondAttribute="trailing" id="OYq-z9-V7f"/>
+                            <constraint firstItem="Am7-3G-b19" firstAttribute="top" secondItem="8bC-Xf-vdC" secondAttribute="top" id="RPF-ZD-PIK"/>
                             <constraint firstItem="Am7-3G-b19" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" id="U5N-Sg-iIe"/>
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="5qj-VD-uwV" secondAttribute="trailing" constant="12" id="VgE-Am-rC9"/>
                             <constraint firstItem="fCJ-16-pab" firstAttribute="centerX" secondItem="8bC-Xf-vdC" secondAttribute="centerX" id="VoB-aR-k5Z"/>
                             <constraint firstItem="WuD-FZ-2MB" firstAttribute="centerX" secondItem="fCJ-16-pab" secondAttribute="centerX" id="Yc7-OF-EP5"/>
                             <constraint firstItem="LqP-vN-hAd" firstAttribute="bottom" secondItem="8bC-Xf-vdC" secondAttribute="bottom" id="aH5-B4-Udl"/>
                             <constraint firstAttribute="bottom" secondItem="roD-D4-87v" secondAttribute="bottom" id="aNB-Qc-dLk"/>
-                            <constraint firstItem="5qj-VD-uwV" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="12" id="abb-6m-er3"/>
-                            <constraint firstItem="Am7-3G-b19" firstAttribute="top" secondItem="8bC-Xf-vdC" secondAttribute="top" id="amV-nD-iRQ"/>
+                            <constraint firstItem="5qj-VD-uwV" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="30" id="abb-6m-er3"/>
                             <constraint firstItem="WuD-FZ-2MB" firstAttribute="top" secondItem="fCJ-16-pab" secondAttribute="bottom" id="g1X-eK-OJ7"/>
                             <constraint firstItem="roD-D4-87v" firstAttribute="top" secondItem="8bC-Xf-vdC" secondAttribute="top" id="i0c-lQ-YNA"/>
                             <constraint firstItem="roD-D4-87v" firstAttribute="trailing" secondItem="6Tk-OE-BBY" secondAttribute="trailing" id="nkA-dm-xtl"/>

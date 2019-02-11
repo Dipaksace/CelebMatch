@@ -19,7 +19,7 @@ import CoreImage
 class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate {
     
     // Main view for showing camera content.
-    @IBOutlet weak var previewView: UIView?
+    @IBOutlet weak var previewView: PreviewView!
     @IBOutlet weak var bottomContraintOfPreview:NSLayoutConstraint!
     @IBOutlet weak var tblRecognizedFace:UITableView!
     @IBOutlet weak var activityView:NVActivityIndicatorView!
@@ -31,52 +31,126 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
     var infoLinksMap: [Int:String] = [1000:""]
     var arrRecognizedFaces = [AnyObject]()
     var rekognitionObject:AWSRekognition?
-    var matchedFaceNameLbl: UILabel = {
-        let label = UILabel()
-        label.textColor = .white
-        label.text = "Label"
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.font = label.font.withSize(30)
-        return label
-    }()
-    // AVCapture variables to hold sequence data
-    var session: AVCaptureSession?
-    var previewLayer: AVCaptureVideoPreviewLayer?
     
-    var videoDataOutput: AVCaptureVideoDataOutput?
-    var videoDataOutputQueue: DispatchQueue?
+    private var faceDetectionRequest: VNRequest!
     
-    var captureDevice: AVCaptureDevice?
-    var captureDeviceResolution: CGSize = CGSize()
+    // TODO: Decide camera position --- front or back
+    private var devicePosition: AVCaptureDevice.Position = .back
     
-    // Layer UI for drawing Vision results
-    var rootLayer: CALayer?
-    var detectionOverlayLayer: CALayer?
-    var detectedFaceRectangleShapeLayer: CAShapeLayer?
-    var detectedFaceLandmarksShapeLayer: CAShapeLayer?
+    // Session Management
+    private enum SessionSetupResult {
+        case success
+        case notAuthorized
+        case configurationFailed
+    }
     
-    // Vision requests
-    private var detectionRequests: [VNDetectFaceRectanglesRequest]?
-    private var trackingRequests: [VNTrackObjectRequest]?
+    private let session = AVCaptureSession()
+    private var isSessionRunning = false
     
-    lazy var sequenceRequestHandler = VNSequenceRequestHandler()
+    // Communicate with the session and other session objects on this queue.
+    private let sessionQueue = DispatchQueue(label: "session queue", attributes: [], target: nil)
+    
+    private var setupResult: SessionSetupResult = .success
+    
+    private var videoDeviceInput:   AVCaptureDeviceInput!
+    
+    private var videoDataOutput:    AVCaptureVideoDataOutput!
+    private var videoDataOutputQueue = DispatchQueue(label: "VideoDataOutputQueue")
+    
+    private var requests = [VNRequest]()
+    
     var i = 0
     
     // MARK: UIViewController overrides
     
     override func viewDidLoad() {
         super.viewDidLoad()
-
         
-        self.session = self.setupAVCaptureSession()
+        // Set up the video preview view.
+        previewView.session = session
+        
+        
+        
+        /*
+         Check video authorization status. Video access is required and audio
+         access is optional. If audio access is denied, audio is not recorded
+         during movie recording.
+         */
+        switch AVCaptureDevice.authorizationStatus(for: AVMediaType.video){
+        case .authorized:
+            // The user has previously granted access to the camera.
+            break
             
-        self.prepareVisionRequest()
-        self.tblRecognizedFace.tableFooterView = UIView.init(frame: CGRect.zero)
-        self.tblRecognizedFace.estimatedRowHeight = 50
+        case .notDetermined:
+            /*
+             The user has not yet been presented with the option to grant
+             video access. We suspend the session queue to delay session
+             setup until the access request has completed.
+             */
+            sessionQueue.suspend()
+            AVCaptureDevice.requestAccess(for: AVMediaType.video, completionHandler: { [unowned self] granted in
+                if !granted {
+                    self.setupResult = .notAuthorized
+                }
+                self.sessionQueue.resume()
+            })
+            
+            
+        default:
+            // The user has previously denied access.
+            setupResult = .notAuthorized
+        }
         
-        self.session?.startRunning()
+        /*
+         Setup the capture session.
+         In general it is not safe to mutate an AVCaptureSession or any of its
+         inputs, outputs, or connections from multiple threads at the same time.
+         
+         Why not do all of this on the main queue?
+         Because AVCaptureSession.startRunning() is a blocking call which can
+         take a long time. We dispatch session setup to the sessionQueue so
+         that the main queue isn't blocked, which keeps the UI responsive.
+         */
+        
+        sessionQueue.async { [unowned self] in
+            self.configureSession()
+        }
+        
     }
-    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        sessionQueue.async { [unowned self] in
+            switch self.setupResult {
+            case .success:
+                // Only setup observers and start the session running if setup succeeded.
+                self.addObservers()
+                self.session.startRunning()
+                self.isSessionRunning = self.session.isRunning
+                
+            case .notAuthorized:
+                DispatchQueue.main.async { [unowned self] in
+                    let message = NSLocalizedString("AVCamBarcode doesn't have permission to use the camera, please change privacy settings", comment: "Alert message when the user has denied access to the camera")
+                    let    alertController = UIAlertController(title: "AppleFaceDetection", message: message, preferredStyle: .alert)
+                    alertController.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Alert OK button"), style: .cancel, handler: nil))
+                    alertController.addAction(UIAlertAction(title: NSLocalizedString("Settings", comment: "Alert button to open Settings"), style: .`default`, handler: { action in
+                        UIApplication.shared.open(URL(string: UIApplicationOpenSettingsURLString)!, options: [:], completionHandler: nil)
+                    }))
+                    
+                    self.present(alertController, animated: true, completion: nil)
+                }
+                
+            case .configurationFailed:
+                DispatchQueue.main.async { [unowned self] in
+                    let message = NSLocalizedString("Unable to capture media", comment: "Alert message when something goes wrong during capture session configuration")
+                    let alertController = UIAlertController(title: "AppleFaceDetection", message: message, preferredStyle: .alert)
+                    alertController.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Alert OK button"), style: .cancel, handler: nil))
+                    
+                    self.present(alertController, animated: true, completion: nil)
+                }
+            }
+        }
+    }
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
     }
@@ -93,68 +167,51 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
     
     // MARK: AVCapture Setup
     
-    /// - Tag: CreateCaptureSession
-    fileprivate func setupAVCaptureSession() -> AVCaptureSession? {
-        let captureSession = AVCaptureSession()
-        do {
-            let inputDevice = try self.configureFrontCamera(for: captureSession, position: .front)
-            self.configureVideoDataOutput(for: inputDevice.device, resolution: inputDevice.resolution, captureSession: captureSession)
-            self.designatePreviewLayer(for: captureSession)
-            return captureSession
-        } catch let executionError   as NSError {
-            self.presentError(executionError)
-        } catch {
-            self.presentErrorAlert(message: "An unexpected failure has occured")
-        }
-        
-        self.teardownAVCapture()
-        
-        return nil
-    }
     @IBAction func switchCameraTapped(sender: Any) {
         //Change camera source
-        if let sess = self.session {
-            //Indicate that some changes will be made to the session
-            sess.stopRunning()
-            sess.beginConfiguration()
-            
-            //Remove existing input
-            guard let currentCameraInput: AVCaptureInput = sess.inputs.first else {
-                return
-            }
-            
-            sess.removeInput(currentCameraInput)
-            
-            //Get new input
-            var newCamera: AVCaptureDevice! = nil
-            if let input = currentCameraInput as? AVCaptureDeviceInput {
-                if (input.device.position == .back) {
-                    newCamera = cameraWithPosition(position: .front)
-                } else {
-                    newCamera = cameraWithPosition(position: .back)
-                }
-            }
-            
-            //Add input to session
-            var err: NSError?
-            var newVideoInput: AVCaptureDeviceInput!
-            do {
-                newVideoInput = try AVCaptureDeviceInput(device: newCamera)
-            } catch let err1 as NSError {
-                err = err1
-                newVideoInput = nil
-            }
-            
-            if newVideoInput == nil || err != nil {
-                print("Error creating capture device input: \(err?.localizedDescription)")
-            } else {
-                sess.addInput(newVideoInput)
-            }
-            
-            //Commit all the configuration changes at once
-            sess.commitConfiguration()
-            sess.startRunning()
+        
+        //Indicate that some changes will be made to the session
+        self.session.stopRunning()
+        self.session.beginConfiguration()
+        
+        //Remove existing input
+        guard let currentCameraInput: AVCaptureInput = self.session.inputs.first else {
+            return
         }
+        
+        self.session.removeInput(currentCameraInput)
+        
+        //Get new input
+        var newCamera: AVCaptureDevice! = nil
+        if let input = currentCameraInput as? AVCaptureDeviceInput {
+            if (input.device.position == .back) {
+                newCamera = cameraWithPosition(position: .front)
+                self.devicePosition = .front
+            } else {
+                newCamera = cameraWithPosition(position: .back)
+                self.devicePosition = .back
+            }
+        }
+        
+        //Add input to session
+        var err: NSError?
+        var newVideoInput: AVCaptureDeviceInput!
+        do {
+            newVideoInput = try AVCaptureDeviceInput(device: newCamera)
+        } catch let err1 as NSError {
+            err = err1
+            newVideoInput = nil
+        }
+        
+        if newVideoInput == nil || err != nil {
+            print("Error creating capture device input: \(err?.localizedDescription)")
+        } else {
+            self.session.addInput(newVideoInput)
+        }
+        
+        //Commit all the configuration changes at once
+        self.session.commitConfiguration()
+        self.session.startRunning()
     }
     
     // Find a camera with the specified AVCaptureDevicePosition, returning nil if one is not found
@@ -169,113 +226,6 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         return nil
     }
     
-    /// - Tag: ConfigureDeviceResolution
-    fileprivate func highestResolution420Format(for device: AVCaptureDevice) -> (format: AVCaptureDevice.Format, resolution: CGSize)? {
-        var highestResolutionFormat: AVCaptureDevice.Format? = nil
-        var highestResolutionDimensions = CMVideoDimensions(width: 0, height: 0)
-        
-        for format in device.formats {
-            let deviceFormat = format as AVCaptureDevice.Format
-            
-            let deviceFormatDescription = deviceFormat.formatDescription
-            if CMFormatDescriptionGetMediaSubType(deviceFormatDescription) == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange {
-                let candidateDimensions = CMVideoFormatDescriptionGetDimensions(deviceFormatDescription)
-                if (highestResolutionFormat == nil) || (candidateDimensions.width > highestResolutionDimensions.width) {
-                    highestResolutionFormat = deviceFormat
-                    highestResolutionDimensions = candidateDimensions
-                }
-            }
-        }
-        
-        if highestResolutionFormat != nil {
-            let resolution = CGSize(width: CGFloat(highestResolutionDimensions.width), height: CGFloat(highestResolutionDimensions.height))
-            return (highestResolutionFormat!, resolution)
-        }
-        
-        return nil
-    }
-    
-    fileprivate func configureFrontCamera(for captureSession: AVCaptureSession,position: AVCaptureDevice.Position) throws -> (device: AVCaptureDevice, resolution: CGSize) {
-        let deviceDiscoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: .video, position: .back)
-        
-        if let device = deviceDiscoverySession.devices.first {
-            if let deviceInput = try? AVCaptureDeviceInput(device: device) {
-                if captureSession.canAddInput(deviceInput) {
-                    captureSession.addInput(deviceInput)
-                }
-                
-                if let highestResolution = self.highestResolution420Format(for: device) {
-                    try device.lockForConfiguration()
-                    device.activeFormat = highestResolution.format
-                    device.unlockForConfiguration()
-                    
-                    return (device, highestResolution.resolution)
-                }
-            }
-        }
-        
-        throw NSError(domain: "ViewController", code: 1, userInfo: nil)
-    }
-    
-    /// - Tag: CreateSerialDispatchQueue
-    fileprivate func configureVideoDataOutput(for inputDevice: AVCaptureDevice, resolution: CGSize, captureSession: AVCaptureSession) {
-        
-        let videoDataOutput = AVCaptureVideoDataOutput()
-        videoDataOutput.alwaysDiscardsLateVideoFrames = true
-        
-        // Create a serial dispatch queue used for the sample buffer delegate as well as when a still image is captured.
-        // A serial dispatch queue must be used to guarantee that video frames will be delivered in order.
-        let videoDataOutputQueue = DispatchQueue(label: "com.example.apple-samplecode.VisionFaceTrack")
-        videoDataOutput.setSampleBufferDelegate(self, queue: videoDataOutputQueue)
-        
-        if captureSession.canAddOutput(videoDataOutput) {
-            captureSession.addOutput(videoDataOutput)
-        }
-        videoDataOutput.videoSettings[kCVPixelBufferPixelFormatTypeKey as String] = Int(kCVPixelFormatType_32BGRA)
-        videoDataOutput.connection(with: .video)?.isEnabled = true
-        
-        if let captureConnection = videoDataOutput.connection(with: AVMediaType.video) {
-            if captureConnection.isCameraIntrinsicMatrixDeliverySupported {
-                captureConnection.isCameraIntrinsicMatrixDeliveryEnabled = true
-            }
-        }
-        
-        self.videoDataOutput = videoDataOutput
-        self.videoDataOutputQueue = videoDataOutputQueue
-        
-        self.captureDevice = inputDevice
-        self.captureDeviceResolution = resolution
-    }
-    
-    /// - Tag: DesignatePreviewLayer
-    fileprivate func designatePreviewLayer(for captureSession: AVCaptureSession) {
-        let videoPreviewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-        self.previewLayer = videoPreviewLayer
-        
-        videoPreviewLayer.name = "CameraPreview"
-        videoPreviewLayer.backgroundColor = UIColor.black.cgColor
-        videoPreviewLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
-        
-        if let previewRootLayer = self.previewView?.layer {
-            self.rootLayer = previewRootLayer
-            
-            previewRootLayer.masksToBounds = true
-            self.view.layoutIfNeeded()
-            videoPreviewLayer.frame = previewRootLayer.frame
-            previewRootLayer.addSublayer(videoPreviewLayer)
-        }
-    }
-    
-    // Removes infrastructure for AVCapture as part of cleanup.
-    fileprivate func teardownAVCapture() {
-        self.videoDataOutput = nil
-        self.videoDataOutputQueue = nil
-        
-        if let previewLayer = self.previewLayer {
-            previewLayer.removeFromSuperlayer()
-            self.previewLayer = nil
-        }
-    }
     
     // MARK: Helper Methods for Error Presentation
     
@@ -309,372 +259,10 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         default:
             return .leftMirrored
         }
-    }
-    
-    
-    
-    // MARK: Performing Vision Requests
-    
-    /// - Tag: WriteCompletionHandler
-    fileprivate func prepareVisionRequest() {
-        
-        self.trackingRequests = []
-        var requests = [VNTrackObjectRequest]()
-        
-        let faceDetectionRequest = VNDetectFaceRectanglesRequest(completionHandler: { (request, error) in
-            
-            if error != nil {
-                print("FaceDetection error: \(String(describing: error)).")
-            }
-            
-            guard let faceDetectionRequest = request as? VNDetectFaceRectanglesRequest,
-                let results = faceDetectionRequest.results as? [VNFaceObservation] else {
-                    return
-            }
-            DispatchQueue.main.async {
-                // Add the observations to the tracking list
-                
-                for observation in results {
-                    let faceTrackingRequest = VNTrackObjectRequest(detectedObjectObservation: observation)
-                    faceTrackingRequest.trackingLevel = .accurate
-                    requests.append(faceTrackingRequest)
-                }
-                
-                
-                self.trackingRequests = requests
-            }
-        })
-        
-        // Start with detection.  Find face, then track it.
-        self.detectionRequests = [faceDetectionRequest]
-        
-        self.sequenceRequestHandler = VNSequenceRequestHandler()
-        
-        self.setupVisionDrawingLayers()
-    }
-    
-    // MARK: Drawing Vision Observations
-    
-    fileprivate func setupVisionDrawingLayers() {
-        let captureDeviceResolution = self.captureDeviceResolution
-        
-        let captureDeviceBounds = CGRect(x: 0,
-                                         y: 0,
-                                         width: captureDeviceResolution.width,
-                                         height: captureDeviceResolution.height)
-        
-        let captureDeviceBoundsCenterPoint = CGPoint(x: captureDeviceBounds.midX,
-                                                     y: captureDeviceBounds.midY)
-        
-        let normalizedCenterPoint = CGPoint(x: 0.5, y: 0.5)
-        
-        guard let rootLayer = self.rootLayer else {
-            self.presentErrorAlert(message: "view was not property initialized")
-            return
-        }
-        
-        let overlayLayer = CALayer()
-        overlayLayer.name = "DetectionOverlay"
-        overlayLayer.masksToBounds = true
-        overlayLayer.anchorPoint = normalizedCenterPoint
-        overlayLayer.bounds = captureDeviceBounds
-        overlayLayer.position = CGPoint(x: rootLayer.bounds.midX, y: rootLayer.bounds.midY)
-        
-        let faceRectangleShapeLayer = CAShapeLayer()
-        faceRectangleShapeLayer.name = "RectangleOutlineLayer"
-        faceRectangleShapeLayer.bounds = captureDeviceBounds
-        faceRectangleShapeLayer.anchorPoint = normalizedCenterPoint
-        faceRectangleShapeLayer.position = captureDeviceBoundsCenterPoint
-        faceRectangleShapeLayer.fillColor = nil
-        faceRectangleShapeLayer.strokeColor = UIColor.init(red: 50/255, green: 152/255, blue: 218/255, alpha: 1.0).cgColor
-        faceRectangleShapeLayer.lineWidth = 5
-        faceRectangleShapeLayer.shadowOpacity = 0.7
-        faceRectangleShapeLayer.shadowRadius = 5
-        
-        let faceLandmarksShapeLayer = CAShapeLayer()
-        faceLandmarksShapeLayer.name = "FaceLandmarksLayer"
-        faceLandmarksShapeLayer.bounds = captureDeviceBounds
-        faceLandmarksShapeLayer.anchorPoint = normalizedCenterPoint
-        faceLandmarksShapeLayer.position = captureDeviceBoundsCenterPoint
-        faceLandmarksShapeLayer.fillColor = nil
-        faceLandmarksShapeLayer.strokeColor = UIColor.yellow.withAlphaComponent(0.7).cgColor
-        faceLandmarksShapeLayer.lineWidth = 3
-        faceLandmarksShapeLayer.shadowOpacity = 0.7
-        faceLandmarksShapeLayer.shadowRadius = 5
-        
-        overlayLayer.addSublayer(faceRectangleShapeLayer)
-        faceRectangleShapeLayer.addSublayer(faceLandmarksShapeLayer)
-        rootLayer.addSublayer(overlayLayer)
-        
-        self.detectionOverlayLayer = overlayLayer
-        self.detectedFaceRectangleShapeLayer = faceRectangleShapeLayer
-        self.detectedFaceLandmarksShapeLayer = faceLandmarksShapeLayer
-        
-        self.updateLayerGeometry()
-    }
-    
-    fileprivate func updateLayerGeometry() {
-        guard let overlayLayer = self.detectionOverlayLayer,
-            let rootLayer = self.rootLayer,
-            let previewLayer = self.previewLayer
-            else {
-                return
-        }
-        
-        CATransaction.setValue(NSNumber(value: true), forKey: kCATransactionDisableActions)
-        
-        let videoPreviewRect = previewLayer.layerRectConverted(fromMetadataOutputRect: CGRect(x: 0, y: 0, width: 1, height: 1))
-        
-        var rotation: CGFloat
-        var scaleX: CGFloat
-        var scaleY: CGFloat
-        
-        // Rotate the layer into screen orientation.
-        switch UIDevice.current.orientation {
-        case .portraitUpsideDown:
-            rotation = 180
-            scaleX = videoPreviewRect.width / captureDeviceResolution.width
-            scaleY = videoPreviewRect.height / captureDeviceResolution.height
-            
-        case .landscapeLeft:
-            rotation = 90
-            scaleX = videoPreviewRect.height / captureDeviceResolution.width
-            scaleY = scaleX
-            
-        case .landscapeRight:
-            rotation = -90
-            scaleX = videoPreviewRect.height / captureDeviceResolution.width
-            scaleY = scaleX
-            
-        default:
-            rotation = 0
-            scaleX = videoPreviewRect.width / captureDeviceResolution.width
-            scaleY = videoPreviewRect.height / captureDeviceResolution.height
-        }
-        
-        // Scale and mirror the image to ensure upright presentation.
-        let affineTransform = CGAffineTransform(rotationAngle: radiansForDegrees(rotation))
-            .scaledBy(x: scaleX, y: -scaleY)
-        overlayLayer.setAffineTransform(affineTransform)
-        
-        // Cover entire screen UI.
-        let rootLayerBounds = rootLayer.bounds
-        overlayLayer.position = CGPoint(x: rootLayerBounds.midX, y: rootLayerBounds.midY)
-    }
-    
-    fileprivate func addPoints(in landmarkRegion: VNFaceLandmarkRegion2D, to path: CGMutablePath, applying affineTransform: CGAffineTransform, closingWhenComplete closePath: Bool) {
-        let pointCount = landmarkRegion.pointCount
-        if pointCount > 1 {
-            let points: [CGPoint] = landmarkRegion.normalizedPoints
-            path.move(to: points[0], transform: affineTransform)
-            path.addLines(between: points, transform: affineTransform)
-            if closePath {
-                path.addLine(to: points[0], transform: affineTransform)
-                path.closeSubpath()
-            }
-        }
-    }
-    
-    fileprivate func addIndicators(to faceRectanglePath: CGMutablePath, faceLandmarksPath: CGMutablePath, for faceObservation: VNFaceObservation) {
-        let displaySize = self.captureDeviceResolution
-        let faceBounds = VNImageRectForNormalizedRect(faceObservation.boundingBox, Int(displaySize.width), Int(displaySize.height))
-        faceRectanglePath.addRect(faceBounds)
         
     }
     
-    /// - Tag: DrawPaths
-    fileprivate func drawFaceObservations(_ faceObservations: [VNFaceObservation]) {
-        guard let faceRectangleShapeLayer = self.detectedFaceRectangleShapeLayer,
-            let faceLandmarksShapeLayer = self.detectedFaceLandmarksShapeLayer
-            else {
-                return
-        }
-        
-        CATransaction.begin()
-        
-        CATransaction.setValue(NSNumber(value: true), forKey: kCATransactionDisableActions)
-        
-        let faceRectanglePath = CGMutablePath()
-        let faceLandmarksPath = CGMutablePath()
-        
-        for faceObservation in faceObservations {
-            self.addIndicators(to: faceRectanglePath,
-                               faceLandmarksPath: faceLandmarksPath,
-                               for: faceObservation)
-        }
-        
-        faceRectangleShapeLayer.path = faceRectanglePath
-        faceLandmarksShapeLayer.path = faceLandmarksPath
-        
-        self.updateLayerGeometry()
-        
-        CATransaction.commit()
-    }
     
-    // MARK: AVCaptureVideoDataOutputSampleBufferDelegate
-    /// - Tag: PerformRequests
-    // Handle delegate method callback on receiving a sample buffer.
-    public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        
-        var requestHandlerOptions: [VNImageOption: AnyObject] = [:]
-        
-        let cameraIntrinsicData = CMGetAttachment(sampleBuffer, kCMSampleBufferAttachmentKey_CameraIntrinsicMatrix, nil)
-        
-        if cameraIntrinsicData != nil {
-            requestHandlerOptions[VNImageOption.cameraIntrinsics] = cameraIntrinsicData
-        }
-        
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            print("Failed to obtain a CVPixelBuffer for the current output frame.")
-            return
-        }
-        
-        let exifOrientation = self.exifOrientationForDeviceOrientation(UIDevice.current.orientation)
-        if let cvBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
-            let image = CIImage.init(cvImageBuffer: cvBuffer)
-            
-            let accuracy = [CIDetectorAccuracy: CIDetectorAccuracyHigh]
-            let faceDetector = CIDetector(ofType: CIDetectorTypeFace, context: nil, options: accuracy)
-            if let faces = faceDetector?.features(in: image)  {
-                let imageSize = CVImageBufferGetDisplaySize(cvBuffer)
-                
-                var actualRect = CGRect()
-                for face in faces {
-                    
-                    actualRect = CGRect(x: face.bounds.origin.x, y: imageSize.height - face.bounds.origin.y - face.bounds.height , width: face.bounds.width, height: face.bounds.height)
-                    
-                }
-            }
-            
-        }
-        
-        guard let requests = self.trackingRequests, !requests.isEmpty else {
-            // No tracking object detected, so perform initial detection
-            let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
-                                                            orientation: exifOrientation,
-                                                            options: requestHandlerOptions)
-            
-            do {
-                guard let detectRequests = self.detectionRequests else {
-                    return
-                }
-                try imageRequestHandler.perform(detectRequests)
-            } catch let error as NSError {
-                NSLog("Failed to perform FaceRectangleRequest: %@", error)
-            }
-            return
-        }
-        
-        do {
-            try self.sequenceRequestHandler.perform(requests,
-                                                    on: pixelBuffer,
-                                                    orientation: exifOrientation)
-        } catch let error as NSError {
-            NSLog("Failed to perform SequenceRequest: %@", error)
-        }
-        
-        // Setup the next round of tracking.
-        var newTrackingRequests = [VNTrackObjectRequest]()
-        for trackingRequest in requests {
-            
-            guard let results = trackingRequest.results else {
-                return
-            }
-            
-            guard let observation = results[0] as? VNDetectedObjectObservation else {
-                return
-            }
-            
-            if !trackingRequest.isLastFrame {
-                
-                if observation.confidence > 0.3 {
-                    trackingRequest.inputObservation = observation
-                    newTrackingRequests.append(trackingRequest)
-                } else {
-                    trackingRequest.isLastFrame = true
-                }
-            }
-            // Perform face landmark tracking on detected faces.
-            var faceLandmarkRequests = [VNDetectFaceLandmarksRequest]()
-            
-            // Perform landmark detection on tracked faces.
-            for trackingRequest in newTrackingRequests {
-                
-                let faceLandmarksRequest = VNDetectFaceLandmarksRequest(completionHandler: { (request, error) in
-                    
-                    if error != nil {
-                        print("FaceLandmarks error: \(String(describing: error)).")
-                    }
-                    
-                    guard let landmarksRequest = request as? VNDetectFaceLandmarksRequest,
-                        let results = landmarksRequest.results as? [VNFaceObservation] else {
-                            return
-                    }
-                    
-                    // Perform all UI updates (drawing) on the main queue, not the background queue on which this handler is being called.
-                    DispatchQueue.main.async {
-                        
-                        if self.i < 1 && self.bottomContraintOfPreview.constant == 0 && observation.confidence == 1.0{
-                            
-                            
-                            if let imgData = self.imageFromSampleBuffer(sampleBuffer: sampleBuffer) ,
-                                let rotatedImg = imgData.rotate(radians: .pi/2),
-                                let data1 = UIImageJPEGRepresentation(rotatedImg, 0){
-                                
-                                self.imageToSendToAPI = rotatedImg
-                                self.i = self.i+1
-                                self.sendImageToRekognition(celebImageData: data1)
-                                
-                            }
-                        }
-                        self.drawFaceObservations(results)
-                    }
-                })
-                
-                guard let trackingResults = trackingRequest.results else {
-                    return
-                }
-                
-                guard let observation = trackingResults[0] as? VNDetectedObjectObservation else {
-                    return
-                }
-                let faceObservation = VNFaceObservation(boundingBox: observation.boundingBox)
-                faceLandmarksRequest.inputFaceObservations = [faceObservation]
-                
-                // Continue to track detected facial landmarks.
-                faceLandmarkRequests.append(faceLandmarksRequest)
-                
-                let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
-                                                                orientation: exifOrientation,
-                                                                options: requestHandlerOptions)
-                
-                do {
-                    try imageRequestHandler.perform(faceLandmarkRequests)
-                } catch let error as NSError {
-                    NSLog("Failed to perform FaceLandmarkRequest: %@", error)
-                }
-            }
-        }
-        self.trackingRequests = newTrackingRequests
-        
-        if newTrackingRequests.isEmpty {
-            // Nothing to track, so abort.
-            
-            if let shwDate = self.showDate, Date().timeIntervalSince(shwDate) < 5 {
-                return
-            }
-            
-            DispatchQueue.main.async {
-                UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
-                    self.bottomContraintOfPreview.constant = 0
-                    self.view.layoutIfNeeded()
-                }, completion: { (isCompleted) in
-                    
-                })
-            }
-            return
-        }
-    }
     func imageFromSampleBuffer(sampleBuffer : CMSampleBuffer) -> UIImage?
     {
         // Get a CMSampleBuffer's Core Video image buffer for the media data
@@ -716,6 +304,342 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         //        return (image);
     }
 }
+// Video Sessions
+extension ViewController {
+    private func configureSession() {
+        if setupResult != .success { return }
+        
+        session.beginConfiguration()
+        session.sessionPreset = .high
+        
+        // Add video input.
+        addVideoDataInput()
+        
+        // Add video output.
+        addVideoDataOutput()
+        
+        session.commitConfiguration()
+        
+    }
+    
+    private func addVideoDataInput() {
+        do {
+            var defaultVideoDevice: AVCaptureDevice!
+            
+            if devicePosition == .front {
+                if let frontCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: AVMediaType.video, position: .front) {
+                    defaultVideoDevice = frontCameraDevice
+                }
+            }
+            else {
+                // Choose the back dual camera if available, otherwise default to a wide angle camera.
+                if let dualCameraDevice = AVCaptureDevice.default(.builtInDualCamera, for: AVMediaType.video, position: .back) {
+                    defaultVideoDevice = dualCameraDevice
+                }
+                    
+                else if let backCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: AVMediaType.video, position: .back) {
+                    defaultVideoDevice = backCameraDevice
+                }
+            }
+            
+            
+            let videoDeviceInput = try AVCaptureDeviceInput(device: defaultVideoDevice!)
+            
+            if session.canAddInput(videoDeviceInput) {
+                session.addInput(videoDeviceInput)
+                self.videoDeviceInput = videoDeviceInput
+                DispatchQueue.main.async {
+                    /*
+                     Why are we dispatching this to the main queue?
+                     Because AVCaptureVideoPreviewLayer is the backing layer for PreviewView and UIView
+                     can only be manipulated on the main thread.
+                     Note: As an exception to the above rule, it is not necessary to serialize video orientation changes
+                     on the AVCaptureVideoPreviewLayer’s connection with other session manipulation.
+                     
+                     Use the status bar orientation as the initial video orientation. Subsequent orientation changes are
+                     handled by CameraViewController.viewWillTransition(to:with:).
+                     */
+                    let statusBarOrientation = UIApplication.shared.statusBarOrientation
+                    var initialVideoOrientation: AVCaptureVideoOrientation = .portrait
+                    if statusBarOrientation != .unknown {
+                        if let videoOrientation = statusBarOrientation.videoOrientation {
+                            initialVideoOrientation = videoOrientation
+                        }
+                    }
+                    self.previewView?.videoPreviewLayer.connection!.videoOrientation = initialVideoOrientation
+                }
+            }
+            
+        }
+        catch {
+            print("Could not add video device input to the session")
+            setupResult = .configurationFailed
+            session.commitConfiguration()
+            return
+        }
+    }
+    
+    private func addVideoDataOutput() {
+        videoDataOutput = AVCaptureVideoDataOutput()
+        videoDataOutput.videoSettings = [(kCVPixelBufferPixelFormatTypeKey as String): Int(kCVPixelFormatType_32BGRA)]
+        
+        
+        if session.canAddOutput(videoDataOutput) {
+            videoDataOutput.alwaysDiscardsLateVideoFrames = true
+            videoDataOutput.setSampleBufferDelegate(self, queue: videoDataOutputQueue)
+            session.addOutput(videoDataOutput)
+        }
+        else {
+            print("Could not add metadata output to the session")
+            setupResult = .configurationFailed
+            session.commitConfiguration()
+            return
+        }
+    }
+}
+
+// MARK: -- Observers and Event Handlers
+extension ViewController {
+    private func addObservers() {
+        /*
+         Observe the previewView's regionOfInterest to update the AVCaptureMetadataOutput's
+         rectOfInterest when the user finishes resizing the region of interest.
+         */
+        NotificationCenter.default.addObserver(self, selector: #selector(sessionRuntimeError), name: Notification.Name("AVCaptureSessionRuntimeErrorNotification"), object: session)
+        
+        /*
+         A session can only run when the app is full screen. It will be interrupted
+         in a multi-app layout, introduced in iOS 9, see also the documentation of
+         AVCaptureSessionInterruptionReason. Add observers to handle these session
+         interruptions and show a preview is paused message. See the documentation
+         of AVCaptureSessionWasInterruptedNotification for other interruption reasons.
+         */
+        NotificationCenter.default.addObserver(self, selector: #selector(sessionWasInterrupted), name: Notification.Name("AVCaptureSessionWasInterruptedNotification"), object: session)
+        NotificationCenter.default.addObserver(self, selector: #selector(sessionInterruptionEnded), name: Notification.Name("AVCaptureSessionInterruptionEndedNotification"), object: session)
+    }
+    
+    private func removeObservers() {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc func sessionRuntimeError(_ notification: Notification) {
+        guard let errorValue = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError else { return }
+        
+        let error = AVError(_nsError: errorValue)
+        print("Capture session runtime error: \(error)")
+        
+        /*
+         Automatically try to restart the session running if media services were
+         reset and the last start running succeeded. Otherwise, enable the user
+         to try to resume the session running.
+         */
+        if error.code == .mediaServicesWereReset {
+            sessionQueue.async { [unowned self] in
+                if self.isSessionRunning {
+                    self.session.startRunning()
+                    self.isSessionRunning = self.session.isRunning
+                }
+            }
+        }
+    }
+    
+    @objc func sessionWasInterrupted(_ notification: Notification) {
+        /*
+         In some scenarios we want to enable the user to resume the session running.
+         For example, if music playback is initiated via control center while
+         using AVCamBarcode, then the user can let AVCamBarcode resume
+         the session running, which will stop music playback. Note that stopping
+         music playback in control center will not automatically resume the session
+         running. Also note that it is not always possible to resume, see `resumeInterruptedSession(_:)`.
+         */
+        if let userInfoValue = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as AnyObject?, let reasonIntegerValue = userInfoValue.integerValue, let reason = AVCaptureSession.InterruptionReason(rawValue: reasonIntegerValue) {
+            print("Capture session was interrupted with reason \(reason)")
+        }
+    }
+    
+    @objc func sessionInterruptionEnded(_ notification: Notification) {
+        print("Capture session interruption ended")
+    }
+}
+
+// MARK: -- Helpers
+extension ViewController {
+    func setupVision() {
+        self.requests = [faceDetectionRequest]
+    }
+    
+    func handleFaces(request: VNRequest, error: Error?) {
+        DispatchQueue.main.async {
+            //perform all the UI updates on the main queue
+            guard let results = request.results as? [VNFaceObservation] else { return }
+            self.previewView?.removeMask()
+            for face in results {
+                self.previewView.drawFaceboundingBox(face: face)
+            }
+        }
+    }
+    
+    func handleFaceLandmarks(request: VNRequest, error: Error?) {
+        DispatchQueue.main.async {
+            //perform all the UI updates on the main queue
+            guard let results = request.results as? [VNFaceObservation] else { return }
+            self.previewView.removeMask()
+            for face in results {
+                self.previewView.drawFaceWithLandmarks(face: face)
+            }
+        }
+    }
+    
+}
+
+// Camera Settings & Orientation
+extension ViewController {
+    func availableSessionPresets() -> [String] {
+        let allSessionPresets = [AVCaptureSession.Preset.photo,
+                                 AVCaptureSession.Preset.low,
+                                 AVCaptureSession.Preset.medium,
+                                 AVCaptureSession.Preset.high,
+                                 AVCaptureSession.Preset.cif352x288,
+                                 AVCaptureSession.Preset.vga640x480,
+                                 AVCaptureSession.Preset.hd1280x720,
+                                 AVCaptureSession.Preset.iFrame960x540,
+                                 AVCaptureSession.Preset.iFrame1280x720,
+                                 AVCaptureSession.Preset.hd1920x1080,
+                                 AVCaptureSession.Preset.hd4K3840x2160]
+        
+        var availableSessionPresets = [String]()
+        for sessionPreset in allSessionPresets {
+            if session.canSetSessionPreset(sessionPreset) {
+                availableSessionPresets.append(sessionPreset.rawValue)
+            }
+        }
+        
+        return availableSessionPresets
+    }
+    
+    func exifOrientationFromDeviceOrientation() -> UInt32 {
+        enum DeviceOrientation: UInt32 {
+            case top0ColLeft = 1
+            case top0ColRight = 2
+            case bottom0ColRight = 3
+            case bottom0ColLeft = 4
+            case left0ColTop = 5
+            case right0ColTop = 6
+            case right0ColBottom = 7
+            case left0ColBottom = 8
+        }
+        var exifOrientation: DeviceOrientation
+        
+        switch UIDevice.current.orientation {
+        case .portraitUpsideDown:
+            exifOrientation = .left0ColBottom
+        case .landscapeLeft:
+            exifOrientation = devicePosition == .front ? .bottom0ColRight : .top0ColLeft
+        case .landscapeRight:
+            exifOrientation = devicePosition == .front ? .top0ColLeft : .bottom0ColRight
+        default:
+            exifOrientation = devicePosition == .front ? .left0ColTop : .right0ColTop
+        }
+        return exifOrientation.rawValue
+    }
+    
+    
+}
+
+// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
+extension ViewController {
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+            let exifOrientation = CGImagePropertyOrientation(rawValue: exifOrientationFromDeviceOrientation()) else { return }
+        var requestOptions: [VNImageOption : Any] = [:]
+        
+        if let cameraIntrinsicData = CMGetAttachment(sampleBuffer, kCMSampleBufferAttachmentKey_CameraIntrinsicMatrix, nil) {
+            requestOptions = [.cameraIntrinsics : cameraIntrinsicData]
+        }
+        
+        let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: exifOrientation, options: requestOptions)
+        // Set up Vision Request
+        let request = VNDetectFaceLandmarksRequest { (request, error) in
+            DispatchQueue.main.async {
+                //perform all the UI updates on the main queue
+                guard let results = request.results as? [VNFaceObservation] else { return }
+                self.previewView?.removeMask()
+                if let face = results.first {
+                    let transform = CGAffineTransform(scaleX: 1, y: -1).translatedBy(x: 0, y: -self.previewView.frame.height)
+                    
+                    let translate = CGAffineTransform.identity.scaledBy(x: self.previewView.frame.width, y: self.previewView.frame.height)
+                    
+                    // The coordinates are normalized to the dimensions of the processed image, with the origin at the image's lower-left corner.
+                    let facebounds = face.boundingBox.applying(translate).applying(transform)
+                    var faceYaw = 1.0
+                    var faceRoll =  1.0
+                    if #available(iOS 12.0, *) {
+                        print("\(face.yaw,face.roll)")
+                        faceYaw = face.yaw?.doubleValue ?? 1.0
+                        faceRoll = face.roll?.doubleValue ?? 1.0
+                    } else {
+                        // Fallback on earlier versions
+                    }
+                    print("-----")
+                    
+                    if self.previewView.frame.contains(facebounds) {
+                        if self.i < 1 && self.bottomContraintOfPreview.constant == 0 && face.confidence == 1.0 && faceYaw.isZero && faceRoll.isZero {
+                            
+                            let ciimage : CIImage = CIImage(cvPixelBuffer: pixelBuffer)
+                            let image : UIImage = self.convert(cmage: ciimage)
+
+                            if let rotatedImg = image.rotate(radians: .pi/2),
+                                let data1 = UIImageJPEGRepresentation(rotatedImg, 0){
+                                
+                                self.imageToSendToAPI = rotatedImg
+                                self.i = self.i+1
+                                self.sendImageToRekognition(celebImageData: data1)
+                                
+                            }
+                        }
+                        for face in results {
+                            self.previewView.drawFaceboundingBox(face: face)
+                        }
+                    }else {
+                        
+                    }
+                    
+                }else {
+                    if let shwDate = self.showDate, Date().timeIntervalSince(shwDate) < 8 {
+                        return
+                    }
+                    
+                    UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+                        self.bottomContraintOfPreview.constant = 0
+                        self.view.layoutIfNeeded()
+                    }, completion: { (isCompleted) in
+                        
+                    })
+
+                }
+                
+            }
+        }
+        
+        do {
+            try imageRequestHandler.perform([request])
+        }
+            
+        catch {
+            print(error)
+        }
+        
+    }
+    func convert(cmage:CIImage) -> UIImage
+    {
+        let context:CIContext = CIContext.init(options: nil)
+        let cgImage:CGImage = context.createCGImage(cmage, from: cmage.extent)!
+        let image:UIImage = UIImage.init(cgImage: cgImage)
+        return image
+    }
+
+    
+}
 extension UIImage {
     func rotate(radians: CGFloat) -> UIImage? {
         let rotatedSize = CGRect(origin: .zero, size: size)
@@ -753,7 +677,7 @@ extension ViewController {
             self.blurView.isHidden = false
             self.activityView.startAnimating()
         }
-
+        
         rekognitionObject?.recognizeCelebrities(celebRequest!){
             (result, error) in
             
@@ -778,16 +702,16 @@ extension ViewController {
                     self.arrRecognizedFaces = celebResult.celebrityFaces ?? []
                     self.tblRecognizedFace.reloadData()
                     self.i = self.i - 1
-
+                    
                     
                 }
                 else if !(celebResult.unrecognizedFaces?.isEmpty)!{
-                   
+                    
                     self.arrRecognizedFaces = celebResult.unrecognizedFaces ?? []
                     self.tblRecognizedFace.reloadData()
-
+                    
                     self.i = self.i - 1
-
+                    
                     print("Unrecognized faces in this pic")
                     
                 }
@@ -802,7 +726,7 @@ extension ViewController {
                     self.bottomContraintOfPreview.constant = 200
                 }, completion: { (isCompleted) in
                     //1. First we check if there are any celebrities in the response
-
+                    
                 })
                 
             }
@@ -810,7 +734,7 @@ extension ViewController {
         }
         
     }
-     
+    
     @objc func handleKnowMore(sender:UIButton){
         if let tblCell = sender.superview?.superview as? RecognizedFaceCell, let arrUrl = tblCell.faceData.urls{
             var urlStr = ""
@@ -876,9 +800,9 @@ extension ViewController:UITableViewDataSource,UITableViewDelegate {
                     
                 }
             }
-       
+            
         }
-       
+        
         return faceCell
     }
     

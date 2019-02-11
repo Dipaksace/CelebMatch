@@ -7,7 +7,8 @@ target 'CelebMatch' do
 
   # Pods for CelebMatch
   pod 'AWSRekognition'
-  pod 'NVActivityIndicatorView' 
+  pod 'NVActivityIndicatorView'
+
 
   target 'CelebMatchTests' do
     inherit! :search_paths

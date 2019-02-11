@@ -15,6 +15,8 @@
 		B5466DCC21CA4B410029C6F4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B5466DCB21CA4B410029C6F4 /* Assets.xcassets */; };
 		B5466DDA21CA4B410029C6F4 /* CelebMatchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5466DD921CA4B410029C6F4 /* CelebMatchTests.swift */; };
 		B5466DE521CA4B410029C6F4 /* CelebMatchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5466DE421CA4B410029C6F4 /* CelebMatchUITests.swift */; };
+		B5543152220B000E008E962E /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5543151220B000D008E962E /* PreviewView.swift */; };
+		B5543154220B00A1008E962E /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5543153220B00A0008E962E /* Extensions.swift */; };
 		B55A8A2721EDD0AD000FBD5B /* RecognizedFaceCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = B55A8A2621EDD0AD000FBD5B /* RecognizedFaceCell.swift */; };
 		C9CA2BA7B4B0C1A844746721 /* Pods_CelebMatchTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDD9F8C863D1AC2A8AE1E35D /* Pods_CelebMatchTests.framework */; };
 		D7C579A2EC88088CE0031BF7 /* Pods_CelebMatchUITests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E0ABB900904B9B2DB3C728EF /* Pods_CelebMatchUITests.framework */; };
@@ -55,6 +57,8 @@
 		B5466DE021CA4B410029C6F4 /* CelebMatchUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CelebMatchUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B5466DE421CA4B410029C6F4 /* CelebMatchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CelebMatchUITests.swift; sourceTree = "<group>"; };
 		B5466DE621CA4B410029C6F4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B5543151220B000D008E962E /* PreviewView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
+		B5543153220B00A0008E962E /* Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Extensions.swift; sourceTree = "<group>"; };
 		B55A8A2621EDD0AD000FBD5B /* RecognizedFaceCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecognizedFaceCell.swift; sourceTree = "<group>"; };
 		C71973048257D91B4057B75D /* Pods-CelebMatchUITests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CelebMatchUITests.debug.xcconfig"; path = "Target Support Files/Pods-CelebMatchUITests/Pods-CelebMatchUITests.debug.xcconfig"; sourceTree = "<group>"; };
 		D7EAECAD07A8DAF7818564BA /* Pods-CelebMatch.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CelebMatch.debug.xcconfig"; path = "Target Support Files/Pods-CelebMatch/Pods-CelebMatch.debug.xcconfig"; sourceTree = "<group>"; };
@@ -129,6 +133,8 @@
 				B538B6C621D4FC4E001357EE /* Celebrity.swift */,
 				B5466DC421CA4B3E0029C6F4 /* AppDelegate.swift */,
 				B5466DC621CA4B3E0029C6F4 /* ViewController.swift */,
+				B5543153220B00A0008E962E /* Extensions.swift */,
+				B5543151220B000D008E962E /* PreviewView.swift */,
 				B55A8A2621EDD0AD000FBD5B /* RecognizedFaceCell.swift */,
 				B5466DC821CA4B3E0029C6F4 /* Main.storyboard */,
 				B5466DCB21CA4B410029C6F4 /* Assets.xcassets */,
@@ -384,6 +390,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B5543152220B000E008E962E /* PreviewView.swift in Sources */,
+				B5543154220B00A1008E962E /* Extensions.swift in Sources */,
 				B55A8A2721EDD0AD000FBD5B /* RecognizedFaceCell.swift in Sources */,
 				B5466DC721CA4B3E0029C6F4 /* ViewController.swift in Sources */,
 				B538B6C721D4FC4E001357EE /* Celebrity.swift in Sources */,
@@ -557,7 +565,7 @@
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = EX4A386PXY;
 				INFOPLIST_FILE = CelebMatch/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.trialX.CelebMatch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -577,7 +585,7 @@
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = EX4A386PXY;
 				INFOPLIST_FILE = CelebMatch/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.trialX.CelebMatch;
 				PRODUCT_NAME = "$(TARGET_NAME)";
