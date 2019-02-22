@@ -182,21 +182,24 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         self.session.removeInput(currentCameraInput)
         
         //Get new input
-        var newCamera: AVCaptureDevice! = nil
+        var newCamera: AVCaptureDevice!
         if let input = currentCameraInput as? AVCaptureDeviceInput {
+            
             if (input.device.position == .back) {
-                newCamera = cameraWithPosition(position: .front)
                 self.devicePosition = .front
+                newCamera = cameraWithPosition(position: .front)
             } else {
-                newCamera = cameraWithPosition(position: .back)
                 self.devicePosition = .back
+                newCamera = cameraWithPosition(position: .back)
             }
+            
         }
         
         //Add input to session
         var err: NSError?
         var newVideoInput: AVCaptureDeviceInput!
         do {
+            
             newVideoInput = try AVCaptureDeviceInput(device: newCamera)
         } catch let err1 as NSError {
             err = err1
@@ -204,7 +207,7 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         }
         
         if newVideoInput == nil || err != nil {
-            print("Error creating capture device input: \(err?.localizedDescription)")
+            print("Error creating capture device input: \(String(describing: err?.localizedDescription))")
         } else {
             self.session.addInput(newVideoInput)
         }
@@ -216,14 +219,41 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
     
     // Find a camera with the specified AVCaptureDevicePosition, returning nil if one is not found
     func cameraWithPosition(position: AVCaptureDevice.Position) -> AVCaptureDevice? {
-        let discoverySession = AVCaptureDevice.DiscoverySession(deviceTypes: [.builtInWideAngleCamera], mediaType: AVMediaType.video, position: .unspecified)
-        for device in discoverySession.devices {
-            if device.position == position {
-                return device
+        var defaultVideoDevice: AVCaptureDevice!
+       
+        do {
+            
+            if devicePosition == .front {
+                if let frontCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: AVMediaType.video, position: .front) {
+                    
+                    defaultVideoDevice = frontCameraDevice
+                }
+                if(defaultVideoDevice.isFocusModeSupported(.autoFocus)) {
+                    try defaultVideoDevice!.lockForConfiguration()
+                    defaultVideoDevice.focusMode = .autoFocus
+                    defaultVideoDevice.unlockForConfiguration()
+                }
             }
+            else {
+                // Choose the back dual camera if available, otherwise default to a wide angle camera.
+                if let dualCameraDevice = AVCaptureDevice.default(.builtInDualCamera, for: AVMediaType.video, position: .back) {
+                    defaultVideoDevice = dualCameraDevice
+                }
+                    
+                else if let backCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: AVMediaType.video, position: .back) {
+                    defaultVideoDevice =  backCameraDevice
+                }
+                if(defaultVideoDevice.isFocusModeSupported(.continuousAutoFocus)) {
+                    try defaultVideoDevice!.lockForConfiguration()
+                    defaultVideoDevice.focusMode = .continuousAutoFocus
+                    defaultVideoDevice.unlockForConfiguration()
+                }
+            }
+            
+        }catch let error {
+            print(error.localizedDescription)
         }
-        
-        return nil
+        return defaultVideoDevice
     }
     
     
@@ -261,7 +291,15 @@ class ViewController: UIViewController, AVCaptureVideoDataOutputSampleBufferDele
         }
         
     }
-    
+    @IBAction func closeBottomInfo(sender:UIButton){
+        
+        UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
+            self.bottomContraintOfPreview.constant = 0
+            self.view.layoutIfNeeded()
+        }, completion: { (isCompleted) in
+            
+        })
+    }
     
     func imageFromSampleBuffer(sampleBuffer : CMSampleBuffer) -> UIImage?
     {
@@ -328,6 +366,7 @@ extension ViewController {
             
             if devicePosition == .front {
                 if let frontCameraDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: AVMediaType.video, position: .front) {
+                    
                     defaultVideoDevice = frontCameraDevice
                 }
             }
@@ -341,12 +380,15 @@ extension ViewController {
                     defaultVideoDevice = backCameraDevice
                 }
             }
-            
+            try! defaultVideoDevice.lockForConfiguration()
+            defaultVideoDevice.focusMode = .continuousAutoFocus
+            defaultVideoDevice.unlockForConfiguration()
             
             let videoDeviceInput = try AVCaptureDeviceInput(device: defaultVideoDevice!)
             
             if session.canAddInput(videoDeviceInput) {
                 session.addInput(videoDeviceInput)
+                
                 self.videoDeviceInput = videoDeviceInput
                 DispatchQueue.main.async {
                     /*
@@ -574,20 +616,19 @@ extension ViewController {
                     var faceYaw = 1.0
                     var faceRoll =  1.0
                     if #available(iOS 12.0, *) {
-                        print("\(face.yaw,face.roll)")
                         faceYaw = face.yaw?.doubleValue ?? 1.0
                         faceRoll = face.roll?.doubleValue ?? 1.0
                     } else {
                         // Fallback on earlier versions
                     }
-                    print("-----")
                     
                     if self.previewView.frame.contains(facebounds) {
-                        if self.i < 1 && self.bottomContraintOfPreview.constant == 0 && face.confidence == 1.0 && faceYaw.isZero && faceRoll.isZero {
+                        
+                        if self.i < 1 && self.bottomContraintOfPreview.constant.isZero && face.confidence == 1.0 && faceYaw.isZero && faceRoll.isZero {
                             
                             let ciimage : CIImage = CIImage(cvPixelBuffer: pixelBuffer)
                             let image : UIImage = self.convert(cmage: ciimage)
-
+                            
                             if let rotatedImg = image.rotate(radians: .pi/2),
                                 let data1 = UIImageJPEGRepresentation(rotatedImg, 0){
                                 
@@ -600,8 +641,6 @@ extension ViewController {
                         for face in results {
                             self.previewView.drawFaceboundingBox(face: face)
                         }
-                    }else {
-                        
                     }
                     
                 }else {
@@ -615,7 +654,7 @@ extension ViewController {
                     }, completion: { (isCompleted) in
                         
                     })
-
+                    
                 }
                 
             }
@@ -630,14 +669,14 @@ extension ViewController {
         }
         
     }
-    func convert(cmage:CIImage) -> UIImage
-    {
+    
+    func convert(cmage:CIImage) -> UIImage {
         let context:CIContext = CIContext.init(options: nil)
         let cgImage:CGImage = context.createCGImage(cmage, from: cmage.extent)!
         let image:UIImage = UIImage.init(cgImage: cgImage)
         return image
     }
-
+    
     
 }
 extension UIImage {
@@ -698,12 +737,11 @@ extension ViewController {
                 
                 guard let celebResult = result else { return }
                 self.arrRecognizedFaces.removeAll()
+                
                 if !(celebResult.celebrityFaces?.isEmpty)!{
                     self.arrRecognizedFaces = celebResult.celebrityFaces ?? []
                     self.tblRecognizedFace.reloadData()
                     self.i = self.i - 1
-                    
-                    
                 }
                 else if !(celebResult.unrecognizedFaces?.isEmpty)!{
                     
@@ -723,7 +761,9 @@ extension ViewController {
                 self.showDate = Date()
                 
                 UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0.5, options: [.curveEaseInOut], animations: {
-                    self.bottomContraintOfPreview.constant = 200
+                    
+                    self.bottomContraintOfPreview.constant = 150
+                    
                 }, completion: { (isCompleted) in
                     //1. First we check if there are any celebrities in the response
                     
@@ -741,7 +781,7 @@ extension ViewController {
             if !arrUrl.isEmpty{
                 urlStr = "https://\(arrUrl[0])"
             }else {
-                urlStr = "https://www.imdb.com/search/name-text?bio=\(tblCell.faceData.name ?? "")"
+                urlStr = "https://www.imdb.com/search/name-text?bio=\(tblCell.faceData.name!)"
             }
             if let celebUrl = URL.init(string: urlStr) {
                 let safariController = SFSafariViewController(url: celebUrl)
@@ -807,7 +847,7 @@ extension ViewController:UITableViewDataSource,UITableViewDelegate {
     }
     
 }
-extension UIViewController {
+extension UIViewController:UIImagePickerControllerDelegate,UINavigationControllerDelegate {
     
     func showAlert(title: String?, message: String?,b1Title: String = "OK", onB1Click:(()->())?) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
@@ -832,7 +872,86 @@ extension UIViewController {
         
         present(alert, animated: true, completion: nil)
     }
+    @IBAction func addPhotoClicked(_ sender:UIButton){
+        
+        let actionSheet = UIAlertController(title: "Choose Source", message: "", preferredStyle: .actionSheet)
+        
+        let photoAction = UIAlertAction(title: "Gallery", style: UIAlertActionStyle.default) { (action) in
+            self.performGalleryFunction()
+        }
+        
+        let camAction = UIAlertAction(title: "Camera", style: UIAlertActionStyle.default) { (action) in
+            self.performCameraFunction()
+        }
+        let cancelAction = UIAlertAction(title: "Cancel", style: UIAlertActionStyle.cancel, handler: nil)
+        
+        actionSheet.addAction(camAction)
+        actionSheet.addAction(photoAction)
+        actionSheet.addAction(cancelAction)
+        
+        self.present(actionSheet, animated: true, completion: nil)
+        
+    }
     
+    func performCameraFunction(){
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .notDetermined:
+            debugPrint("notDetermined")
+        case .authorized:
+            debugPrint("authorized")
+        case .denied:
+            showAlert(title: "Give access to Camera", message: "",b1Title:"Go to Settings", onB1Click: {
+                guard let settingsURL = URL(string: UIApplicationOpenSettingsURLString) else { return }
+                if UIApplication.shared.canOpenURL(settingsURL){
+                    UIApplication.shared.open(settingsURL, options: [:], completionHandler: nil)
+                }
+            })
+            
+        case .restricted:
+            debugPrint("restricted")
+            
+        }
+        
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            let imagePickerController = UIImagePickerController()
+            imagePickerController.sourceType = .camera
+            imagePickerController.allowsEditing = true
+            imagePickerController.delegate = self
+            self.present(imagePickerController, animated: true, completion: nil)
+        } else {
+            debugPrint("Cam unavail")
+        }
+    }
+
+    func performGalleryFunction(){
+        switch PHPhotoLibrary.authorizationStatus() {
+        case .authorized:
+            break
+        case .denied:
+            showAlert(title: "Give access to photos", message: "",b1Title:"Go to Settings", onB1Click: {
+                guard let settingsURL = URL(string: UIApplicationOpenSettingsURLString) else { return }
+                if UIApplication.shared.canOpenURL(settingsURL){
+                    UIApplication.shared.open(settingsURL, options: [:], completionHandler: nil)
+                }
+            })
+            break
+        case .notDetermined:
+            break
+        case .restricted:
+            break
+        }
+        
+        if UIImagePickerController.isSourceTypeAvailable(.photoLibrary) {
+            let imagePickerController = UIImagePickerController()
+            imagePickerController.sourceType = .photoLibrary
+            imagePickerController.allowsEditing = true
+            imagePickerController.delegate = self
+            self.present(imagePickerController, animated: true, completion: nil)
+        } else {
+            debugPrint("Photo Library unavail")
+        }
+    }
+
     //MARK:- Camera Functions
     func performCameraFunction(delegate: (UIImagePickerControllerDelegate & UINavigationControllerDelegate)){
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -865,5 +984,19 @@ extension UIViewController {
 }
 
 
+extension ViewController {
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String : Any]) {
+        
+        let cmeraImg = info[UIImagePickerControllerEditedImage] as? UIImage
+        self.imageToSendToAPI = cmeraImg
+        let celebImage:Data = UIImageJPEGRepresentation(cmeraImg!, 0.2)!
+        
+        //Demo Line
+        self.i = 1
+        sendImageToRekognition(celebImageData: celebImage)
+        
+        picker.dismiss(animated: true, completion: nil)
+    }
+}
 
 
